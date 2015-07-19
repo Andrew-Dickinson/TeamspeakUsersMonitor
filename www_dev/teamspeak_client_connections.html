@@ -1,0 +1,94 @@
+<html>
+    <head>
+        <script src="https://www.google.com/jsapi"></script>
+        <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+        <script src="https://jquery-csv.googlecode.com/files/jquery.csv-0.71.js"></script>
+        <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+        <script>
+            google.load("visualization", "1.1", {packages:["timeline"]});
+            google.setOnLoadCallback(drawChart);
+                function sqlTimeStampToDate(timestamp) {
+                    //function parses sql datetime string and returns javascript Date object
+                    //input has to be in this format: 2007-06-05 15:26:02
+                    var regex=/^([0-9]{2,4})-([0-1][0-9])-([0-3][0-9]) (?:([0-2][0-9]):([0-5][0-9]):([0-5][0-9]))?$/;
+                    var parts=timestamp.replace(regex,"$1 $2 $3 $4 $5 $6").split(' ');
+                    return new Date(parts[0],parts[1]-1,parts[2],parts[3],parts[4],parts[5]);
+                  }
+
+                function formatLocalDate() {
+                    var now = new Date(),
+                        tzo = -now.getTimezoneOffset(),
+                        dif = tzo >= 0 ? '+' : '-',
+                        pad = function(num) {
+                            var norm = Math.abs(Math.floor(num));
+                            return (norm < 10 ? '0' : '') + norm;
+                        };
+                    return now.getFullYear()
+                        + '-' + pad(now.getMonth()+1)
+                        + '-' + pad(now.getDate())
+                        + 'T' + pad(now.getHours())
+                        + ':' + pad(now.getMinutes())
+                        + ':' + pad(now.getSeconds())
+                        + dif + pad(tzo / 60)
+                        + ':' + pad(tzo % 60);
+                }
+
+                function drawChart() {
+                    var file_name = "/logs/merged_ts_connections.csv";
+                    $.get(file_name, function(csvString) {
+                    var arrayData = $.csv.toArrays(csvString, {onParseValue: $.csv.hooks.castToScalar});
+                    for (var i=0; i<arrayData.length; i++){
+                        arrayData[i][1] = sqlTimeStampToDate(arrayData[i][1]);
+                        arrayData[i][2] = sqlTimeStampToDate(arrayData[i][2]);
+                    }
+
+                    var data = new google.visualization.arrayToDataTable(arrayData);
+                    var view = new google.visualization.DataView(data);
+                    var options =  {};
+                    var chart = new google.visualization.Timeline(document.getElementById('chart_div1'));
+                    chart.draw(view, options);
+
+                    var user_dict_file_name = "/logs/ts_user_dict.csv";
+                    $.get(user_dict_file_name, function(csvString) {
+                        var user_dict = $.csv.toArrays(csvString, {onParseValue: $.csv.hooks.castToScalar});
+                        var elements = document.getElementsByTagName('text');
+                        var nameList = new Array(elements.length);
+                        for (var i=0; i<elements.length; i++){
+                            if (elements[i].getAttribute('fill') == '#4d4d4d') {
+                                nameList[i] = elements[i].innerHTML;
+                                console.log(elements[i].innerHTML);
+                            }
+                        }
+//                        debugger;
+                        for (i=0; i<elements.length; i++){
+                            var type = elements[i].getAttribute('fill');
+                            if (type == '#4d4d4d'){
+                                var name = elements[i].innerHTML;
+                                var uid;
+                                for(var j=0; j<user_dict.length; j++){
+                                    if (user_dict[j][1] == name) {
+                                        uid = user_dict[j][0];
+                                    }
+                                }
+//                                if (uid != undefined){
+//                                    var text_element =  elements[i];
+//                                    var link = '/logs/'.concat(uid).concat('/individual_connections.html');
+//                                    var parent = text_element.parentNode;
+//                                    var link_element = document.createElementNS("http://www.w3.org/2000/svg", 'a');
+//                                    link_element.setAttribute('xlink:href', link);
+//
+//                                    parent.appendChild(link_element);
+//                                    link_element.appendChild(text_element);
+//                                }
+                            }
+                        }
+                        $("body").html($("body").html());
+                    });
+                });
+            }
+        </script>
+    </head>
+    <body>
+        <div id="chart_div1" style='width: 1200px; height: 700px;'></div>
+    </body>
+</html>
